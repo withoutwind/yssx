@@ -1,23 +1,22 @@
 import { Deity, Tier, GeminiResponse } from "../src/types";
-
+const crypto = require('crypto');
 import axios from "axios";
 
-function decryptXOR(encryptedB64:string, key:string) {
-  const encryptedBytes = Uint8Array.from(atob(encryptedB64), c => c.charCodeAt(0));
-  const keyBytes = new TextEncoder().encode(key);
+// 固定密钥和 IV
+const SECRET_KEY = Buffer.from('12345678901234567890123456789012'); // 32 字节
+const IV = Buffer.from('1234567890123456');                          // 16 字节
 
-  const decrypted = encryptedBytes.map((b, i) => 
-    b ^ keyBytes[i % keyBytes.length]
-  );
+const encryptedText = 'fhQ0XSylhomI93xwgeDVfdSljUeeo1Wq4/PQu3Lve8i5uQGg5ex1O8kpxTlnpqlG';
 
-  return new TextDecoder().decode(decrypted);
+// 解密函数
+function decrypt(encrypted: string) {
+  const decipher = crypto.createDecipheriv('aes-256-cbc', SECRET_KEY, IV);
+  let decrypted = decipher.update(encrypted, 'base64', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
 }
 
-// 使用方式
-const encryptionKey = "12345678901234567890123456789012";
-const encrypted = "QlkeUQcPAwELUQEGC1UGAg8JDwgJAFZQAAUAXV8DAAQIBAo=";
-
-const apiKey = decryptXOR(encrypted, encryptionKey);
+const apiKey = decrypt(encryptedText);
 
 export const getDivineGuidance = async (
   deity: Deity,

@@ -1,23 +1,43 @@
 import { Deity, Tier, GeminiResponse } from "../src/types";
-
+const crypto = require('crypto');
 import axios from "axios";
 
-function decryptXOR(encryptedB64:string, key:string) {
-  const encryptedBytes = Uint8Array.from(atob(encryptedB64), c => c.charCodeAt(0));
-  const keyBytes = new TextEncoder().encode(key);
+// 密钥和 IV（必须与你加密时保持一致）
+const SECRET_KEY = "12345678901234567890123456789012"; // 32 chars
+const IV = "1234567890123456"; // 16 chars                // 16 字节
 
-  const decrypted = encryptedBytes.map((b, i) => 
-    b ^ keyBytes[i % keyBytes.length]
+const encryptedText = 'fhQ0XSylhomI93xwgeDVfdSljUeeo1Wq4/PQu3Lve8i5uQGg5ex1O8kpxTlnpqlG';
+function base64ToBytes(base64: string) {
+  const binary = atob(base64);
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+// Uint8Array → UTF8 string
+function bytesToUtf8(bytes: Uint8Array) {
+  return new TextDecoder().decode(bytes);
+}
+// 解密函数
+export async function decryptAES256CBC(base64Cipher: string): Promise<string> {
+  const keyBytes = new TextEncoder().encode(SECRET_KEY);
+  const ivBytes = new TextEncoder().encode(IV);
+  const cipherBytes = base64ToBytes(base64Cipher);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "AES-CBC" },
+    false,
+    ["decrypt"]
   );
 
-  return new TextDecoder().decode(decrypted);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-CBC", iv: ivBytes },
+    cryptoKey,
+    cipherBytes
+  );
+
+  return bytesToUtf8(new Uint8Array(decrypted));
 }
-
-// 使用方式
-const encryptionKey = "12345678901234567890123456789012";
-const encrypted = "QlkeUQcPAwELUQEGC1UGAg8JDwgJAFZQAAUAXV8DAAQIBAo=";
-
-const apiKey = decryptXOR(encrypted, encryptionKey);
+const apiKey = decryptAES256CBC(encryptedText);
 
 export const getDivineGuidance = async (
   deity: Deity,

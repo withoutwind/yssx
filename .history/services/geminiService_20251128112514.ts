@@ -1,29 +1,46 @@
 import { Deity, Tier, GeminiResponse } from "../src/types";
-
 import axios from "axios";
 
-function decryptXOR(encryptedB64:string, key:string) {
-  const encryptedBytes = Uint8Array.from(atob(encryptedB64), c => c.charCodeAt(0));
-  const keyBytes = new TextEncoder().encode(key);
+const SECRET_KEY = "12345678901234567890123456789012";
+const IV = "1234567890123456";
 
-  const decrypted = encryptedBytes.map((b, i) => 
-    b ^ keyBytes[i % keyBytes.length]
+const encryptedText = "FWFqqUhs1TkTfiQ2Hb7Jm30J6WzQ95/WawYFCSpJfMgZzdtKmpKhZq4KcPXx3/4F";
+
+function base64ToBytes(b64: string) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+async function decryptAES(cipherTextBase64: string): Promise<string> {
+  const keyBytes = new TextEncoder().encode(SECRET_KEY);
+  const ivBytes = new TextEncoder().encode(IV);
+  const cipherBytes = base64ToBytes(cipherTextBase64);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    keyBytes,
+    { name: "AES-CBC" },
+    false,
+    ["decrypt"]
+  );
+
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-CBC", iv: ivBytes },
+    cryptoKey,
+    cipherBytes
   );
 
   return new TextDecoder().decode(decrypted);
 }
-
-// 使用方式
-const encryptionKey = "12345678901234567890123456789012";
-const encrypted = "QlkeUQcPAwELUQEGC1UGAg8JDwgJAFZQAAUAXV8DAAQIBAo=";
-
-const apiKey = decryptXOR(encrypted, encryptionKey);
 
 export const getDivineGuidance = async (
   deity: Deity,
   wish: string,
   totalDonation: number
 ): Promise<GeminiResponse> => {
+
+  // ✅ 这里必须 await
+  const apiKey = await decryptAES(encryptedText);
+
   if (!apiKey) {
     return {
       prediction: "心诚则灵，万事胜意。",
@@ -70,7 +87,7 @@ export const getDivineGuidance = async (
     const raw = response.data.choices?.[0]?.message?.content?.trim();
     if (!raw) throw new Error("Empty DeepSeek response");
 
-    return JSON.parse(raw); // 必须是 JSON 格式
+    return JSON.parse(raw);
   } catch (error) {
     console.error("DeepSeek API Error:", error);
 
